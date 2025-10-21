@@ -5,10 +5,5 @@ class CoreConfig(AppConfig):
     name = 'core'
     
     def ready(self):
-        # Start detection processor when Django is fully loaded
-        try:
-            from .detection_handler import detection_processor
-            detection_processor.start_monitoring()
-            print("🚀 Started real-time detection processor")
-        except Exception as e:
-            print(f"❌ Failed to start detection processor: {e}")
+        # Don't start detection processor on Azure
+        print("✅ Core app loaded successfully")
