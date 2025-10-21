@@ -1,53 +1,48 @@
 from .settings import *
 import os
-import dj_database_url
 
 # Security settings
 DEBUG = False
-ALLOWED_HOSTS = ['.azurewebsites.net', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['*']  # Allow all hosts
 
-# Database configuration
+# Database - Use SQLite with correct path
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
-        conn_max_age=600
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    }
 }
 
-# Static files configuration
+# Static files
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Remove the static directory warning by updating STATICFILES_DIRS
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 
 # Use WhiteNoise for static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
-# Remove channels for Azure compatibility
+# Remove channels (no WebSockets on Azure)
 INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'channels']
 ASGI_APPLICATION = None
 
-# Simplified detection for Azure
-DETECTION_DATA_DIR = BASE_DIR / 'detection_data'
-JSON_DETECTIONS_DIR = DETECTION_DATA_DIR / 'json_detections'
+# Use WSGI
+WSGI_APPLICATION = 'dashboard.wsgi.application'
 
-# Create directories if they don't exist
+# Detection directories
+DETECTION_DATA_DIR = os.path.join(BASE_DIR, 'detection_data')
+JSON_DETECTIONS_DIR = os.path.join(DETECTION_DATA_DIR, 'json_detections')
 os.makedirs(JSON_DETECTIONS_DIR, exist_ok=True)
 
-# Disable real-time detection processor for Azure
+# Remove the detection processor startup
 def start_detection_processor():
-    print("⚠️ Detection processor disabled for Azure deployment")
+    print("⚠️ Detection processor disabled for Azure")
 
-# Logging
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-}
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.azurewebsites.net',
+]
