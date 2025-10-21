@@ -9,11 +9,7 @@ logger = logging.getLogger(__name__)
 class DetectionProcessor:
     def __init__(self):
         self.json_dir = settings.JSON_DETECTIONS_DIR
-        self.processed_dir = os.path.join(self.json_dir, 'processed')
-        
-        # Create directories if they don't exist
         os.makedirs(self.json_dir, exist_ok=True)
-        os.makedirs(self.processed_dir, exist_ok=True)
     
     def monitor_detection_files(self):
         """Simple file monitoring for Azure"""
@@ -26,7 +22,7 @@ class DetectionProcessor:
         """Process any new detection files"""
         try:
             for filename in os.listdir(self.json_dir):
-                if filename.endswith('.json') and not filename.startswith('processed_'):
+                if filename.endswith('.json'):
                     file_path = os.path.join(self.json_dir, filename)
                     self.process_detection_file(file_path)
         except Exception as e:
@@ -40,22 +36,19 @@ class DetectionProcessor:
             
             logger.info(f"Processing detection file: {file_path}")
             
-            # Process different types of detections
+            # Process truck detections
             if 'truck_detections' in detection_data:
                 self._process_truck_detections(detection_data['truck_detections'])
             
+            # Process safety violations
             if 'safety_violations' in detection_data:
                 self._process_safety_violations(detection_data['safety_violations'])
             
-            # Move processed file to archive
-            processed_filename = f"processed_{os.path.basename(file_path)}"
-            archive_path = os.path.join(self.processed_dir, processed_filename)
-            os.rename(file_path, archive_path)
-            
-            logger.info(f"Successfully processed: {file_path}")
+            # Remove file after processing
+            os.remove(file_path)
             
         except Exception as e:
-            logger.error(f"Error processing detection file {file_path}: {str(e)}")
+            logger.error(f"Error processing detection file: {str(e)}")
     
     def _process_truck_detections(self, detections):
         """Process truck movement and status detections"""
@@ -76,12 +69,11 @@ class DetectionProcessor:
                     }
                 )
                 
-                # Update truck status based on event
+                # Update truck status
                 status_map = {
                     'gate_in': 'gate_in',
                     'docked': 'docked', 
                     'loading_start': 'loading',
-                    'loading_end': 'loading',
                     'departed': 'departed'
                 }
                 
@@ -97,8 +89,6 @@ class DetectionProcessor:
                     notes=detection.get('notes', 'Automated detection')
                 )
                 
-                logger.info(f"Processed truck event: {truck_id} - {event_type}")
-                
             except Exception as e:
                 logger.error(f"Error processing truck detection: {str(e)}")
     
@@ -113,7 +103,7 @@ class DetectionProcessor:
                     description=violation.get('description', 'Safety violation detected')
                 )
                 
-                # Create alert for safety violations
+                # Create alert for critical violations
                 if violation.get('severity') in ['high', 'critical']:
                     Alert.objects.create(
                         alert_type='safety',
@@ -122,7 +112,8 @@ class DetectionProcessor:
                         message=violation.get('description', 'Critical safety violation detected'),
                     )
                 
-                logger.info(f"Processed safety violation: {safety_event.violation_type}")
-                
             except Exception as e:
                 logger.error(f"Error processing safety violation: {str(e)}")
+
+# Create global instance
+detection_processor = DetectionProcessor()
